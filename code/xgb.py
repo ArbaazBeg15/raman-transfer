@@ -72,7 +72,13 @@ def main():
         return r2_score(eval_targets, preds)
 
     sampler = optuna.samplers.TPESampler(seed=SEED)
-    study = optuna.create_study(direction="maximize", sampler=sampler, storage="sqlite:///experiements.db", load_if_exists=True)
+    study = optuna.create_study(
+        study_name="xgb",
+        direction="maximize",
+        sampler=sampler,
+        storage="sqlite:///experiements.db",
+        load_if_exists=True
+    )
     
     start = time.perf_counter()
     study.optimize(objective, n_trials=16, n_jobs=1)
