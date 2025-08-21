@@ -21,7 +21,6 @@ def get_stats(tensor, p=True, r=False):
     min, max =  tensor.min(), tensor.max()
     
     if p: print(f"Min: {min}, Max: {max}, Mean: {mean}, Std: {std}")
-    
     if r: return min, max, mean, std
     
     
