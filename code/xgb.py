@@ -72,10 +72,10 @@ def main():
         return r2_score(eval_targets, preds)
 
     sampler = optuna.samplers.TPESampler(seed=SEED)
-    study = optuna.create_study(direction="maximize", sampler=sampler)
+    study = optuna.create_study(direction="maximize", sampler=sampler, storage="sqlite:///experiements.db")
     
     start = time.perf_counter()
-    study.optimize(objective, n_trials=4, n_jobs=2)
+    study.optimize(objective, n_trials=16, n_jobs=4)
     end = time.perf_counter()
     print(f"Elapsed: {end - start:.6f}s")
 

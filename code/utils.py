@@ -74,7 +74,7 @@ def show_waves(waves, dpi=100):
     
     
 def hf_ds_download(hf_token, repo_id):
-    login(hf_token)
+    login(hf_token[1:])
     return snapshot_download(repo_id, repo_type="dataset")
 
 
