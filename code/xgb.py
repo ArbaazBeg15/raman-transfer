@@ -1,4 +1,5 @@
 import os
+import time
 import pandas as pd
 import optuna
 from xgboost import XGBRegressor
@@ -8,7 +9,7 @@ from utils import *
 
 
 SEED = 1000
-HF_TOKEN = "xhf_uOkImkbEroqtIuyvGJrttTzaebfeIdPZID"
+HF_TOKEN = "xhf_XURkoNhwOIPtEdHfNeRpVkjEwKSkhtigFi"
 
 
 def main():
@@ -42,14 +43,14 @@ def main():
     eval_inputs = zscore(eval_inputs, mean, std)
 
     def objective(trial):
-        n_estimators = trial.suggest_int("n_estimators", 200, 1000)
-        max_depth = trial.suggest_int("max_depth", 3, 20)
+        #n_estimators = trial.suggest_int("n_estimators", 200, 1000)
+        #max_depth = trial.suggest_int("max_depth", 3, 20)
         learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.8, log=True)
         
         model = XGBRegressor(
-            n_estimators=n_estimators,
+            n_estimators=200,
             learning_rate=learning_rate,
-            max_depth=max_depth,
+            max_depth=3,
             subsample=0.8,
             colsample_bytree=0.8,
             random_state=SEED,
@@ -70,7 +71,12 @@ def main():
         preds = model.predict(eval_inputs)
         return r2_score(eval_targets, preds)
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=4, n_jobs=1)
+    sampler = optuna.samplers.TPESampler(seed=SEED)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
+    
+    start = time.perf_counter()
+    study.optimize(objective, n_trials=4, n_jobs=2)
+    end = time.perf_counter()
+    print(f"Elapsed: {end - start:.6f}s")
 
 main()

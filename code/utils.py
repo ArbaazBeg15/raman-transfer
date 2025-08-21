@@ -4,10 +4,11 @@ import numpy as np
 from scipy import signal
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from huggingface_hub import login, snapshot_download
 from tqdm.auto import tqdm
 
 
-def setup_reproducibility():
+def setup_reproducibility(SEED):
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
@@ -72,7 +73,7 @@ def show_waves(waves, dpi=100):
     plt.show()
     
     
-def hf_ds_download(token, repo_id):
+def hf_ds_download(hf_token, repo_id):
     login(hf_token)
     return snapshot_download(repo_id, repo_type="dataset")
 
