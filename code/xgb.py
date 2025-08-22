@@ -62,10 +62,10 @@ def main():
         load_if_exists=True
     )
 
-    study.optimize(objective, n_trials=200, n_jobs=10)
+    study.optimize(objective, n_trials=50, n_jobs=4)
     
     
-def preprocess():
+def preprocess_data():
     path = hf_ds_download(HF_TOKEN, repo_id="ArbaazBeg/kaggle-spectogram")
     files = sorted(os.listdir(path))
 
