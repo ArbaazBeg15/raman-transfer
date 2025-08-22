@@ -11,7 +11,6 @@ from utils import *
 SEED = 1000
 HF_TOKEN = "xhf_XURkoNhwOIPtEdHfNeRpVkjEwKSkhtigFi"
 
-
 def main():
     setup_reproducibility(SEED)
     path = hf_ds_download(HF_TOKEN, repo_id="ArbaazBeg/kaggle-spectogram")
@@ -43,21 +42,22 @@ def main():
     eval_inputs = zscore(eval_inputs, mean, std)
 
     def objective(trial):
-        #n_estimators = trial.suggest_int("n_estimators", 200, 1000)
-        #max_depth = trial.suggest_int("max_depth", 3, 20)
-        learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.8, log=True)
+        n_estimators = trial.suggest_int("n_estimators", 200, 1000)
+        learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.07, log=True)
+        max_depth = trial.suggest_int("max_depth", 3, 20)
+        early_stopping_rounds = trial.suggest_int("early_stopping_rounds", 3, 20)
         
         model = XGBRegressor(
-            n_estimators=200,
+            n_estimators=n_estimators,
             learning_rate=learning_rate,
-            max_depth=3,
+            max_depth=max_depth,
             subsample=0.8,
             colsample_bytree=0.8,
             random_state=SEED,
             n_jobs=-1,
             #reg_lambda=1.0,
             eval_metric="rmse",  
-            #early_stopping_rounds=5,        
+            early_stopping_rounds=early_stopping_rounds,        
             tree_method="hist", 
             device="cuda",
         )
@@ -79,11 +79,9 @@ def main():
         storage="sqlite:///experiements.db",
         load_if_exists=True
     )
-    
-    start = time.perf_counter()
-    study.optimize(objective, n_trials=16, n_jobs=1)
-    end = time.perf_counter()
-    print(f"Elapsed: {end - start:.6f}s")
 
+    study.optimize(objective, n_trials=20, n_jobs=1)
+    
+    
 
 main()
