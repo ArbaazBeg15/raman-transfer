@@ -11,29 +11,10 @@ from utils import *
 SEED = 1000
 HF_TOKEN = "xhf_XURkoNhwOIPtEdHfNeRpVkjEwKSkhtigFi"
 
+
 def main():
     setup_reproducibility(SEED)
-    path = hf_ds_download(HF_TOKEN, repo_id="ArbaazBeg/kaggle-spectogram")
-    files = sorted(os.listdir(path))
-
-    csv_path = os.path.join(path, files[11])
-    df = pd.read_csv(csv_path)
-
-    input_cols = df.columns[1:2049]
-    target_cols = df.columns[2050:]
-
-    targets  = df[target_cols].dropna().to_numpy()
-
-    df = df[input_cols]
-    df['Unnamed: 1'] = df['Unnamed: 1'].str.replace("[\[\]]", "", regex=True).astype('int64')
-    df['Unnamed: 2048'] = df['Unnamed: 2048'].str.replace("[\[\]]", "", regex=True).astype('int64')
-
-    inputs = df.to_numpy().reshape(-1, 2, 2048)
-    inputs = inputs.mean(axis=1)
-    inputs = get_advanced_spectra_features(inputs)
-
-    inputs = inputs.reshape(-1, 3 * 2048).astype(np.float32)
-    targets = targets.astype(np.float32)
+    inputs, targets = preprocess_data()
 
     train_inputs, eval_inputs, train_targets, eval_targets = split(inputs, targets, SEED)
 
@@ -44,8 +25,9 @@ def main():
     def objective(trial):
         n_estimators = trial.suggest_int("n_estimators", 200, 1000)
         learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.07, log=True)
-        max_depth = trial.suggest_int("max_depth", 3, 20)
-        early_stopping_rounds = trial.suggest_int("early_stopping_rounds", 3, 20)
+        max_depth = trial.suggest_int("max_depth", 10, 60)
+        reg_lambda = trial.suggest_float("reg_lambda", 0.0005, 0.1, log=True)
+        early_stopping_rounds = trial.suggest_int("early_stopping_rounds", 10, 200)
         
         model = XGBRegressor(
             n_estimators=n_estimators,
@@ -55,7 +37,7 @@ def main():
             colsample_bytree=0.8,
             random_state=SEED,
             n_jobs=-1,
-            #reg_lambda=1.0,
+            reg_lambda=reg_lambda,
             eval_metric="rmse",  
             early_stopping_rounds=early_stopping_rounds,        
             tree_method="hist", 
@@ -80,8 +62,32 @@ def main():
         load_if_exists=True
     )
 
-    study.optimize(objective, n_trials=20, n_jobs=1)
+    study.optimize(objective, n_trials=200, n_jobs=10)
     
     
+def preprocess():
+    path = hf_ds_download(HF_TOKEN, repo_id="ArbaazBeg/kaggle-spectogram")
+    files = sorted(os.listdir(path))
+
+    csv_path = os.path.join(path, files[11])
+    df = pd.read_csv(csv_path)
+
+    input_cols = df.columns[1:2049]
+    target_cols = df.columns[2050:]
+
+    targets  = df[target_cols].dropna().to_numpy()
+
+    df = df[input_cols]
+    df['Unnamed: 1'] = df['Unnamed: 1'].str.replace("[\[\]]", "", regex=True).astype('int64')
+    df['Unnamed: 2048'] = df['Unnamed: 2048'].str.replace("[\[\]]", "", regex=True).astype('int64')
+
+    inputs = df.to_numpy().reshape(-1, 2, 2048)
+    inputs = inputs.mean(axis=1)
+    inputs = get_advanced_spectra_features(inputs)
+
+    inputs = inputs.reshape(-1, 3 * 2048).astype(np.float32)
+    targets = targets.astype(np.float32)
+    
+    return inputs, targets
 
 main()
