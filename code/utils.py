@@ -12,30 +12,11 @@ from huggingface_hub import login, snapshot_download
 from tqdm.auto import tqdm
 import neptune
 
-def setup_reproducibility(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available(): torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(False, warn_only=True)
-    torch.set_float32_matmul_precision("high")
+
     
 
 def cuda_to_np(tensor):
     return tensor.cpu().detach().numpy()
-
-
-def get_scheduler(optimizer, train_dl, epochs):
-    total_training_steps = len(train_dl) * epochs
-    warmup_steps = int(total_training_steps * 0.05)  # e.g. 5% warmup
-    
-    return get_cosine_schedule_with_warmup(
-        optimizer=optimizer,
-        num_warmup_steps=warmup_steps,
-        num_training_steps=total_training_steps
-    )
 
 
 def get_stats(tensor, p=True, r=False, minmax=False):
@@ -190,7 +171,7 @@ upper_bounds = {
 }
 
 
-def get_dataset(path, name, lower=-1000, upper=10000):
+def get_data(path, name, lower=-1000, upper=10000):
     df = pd.read_csv(os.path.join(path, name))
 
     lower = max(lower, lower_bounds[name[:-4]])
@@ -223,7 +204,7 @@ def load_datasets(path, ds_names, lower=-1000, upper=10000):
         *[upper_bounds[n[:-4]] for n in ds_names]
     )
 
-    datasets = [get_dataset(path, name, lower, upper) for name in ds_names]
+    datasets = [get_data(path, name, lower, upper) for name in ds_names]
     wavenumbers = np.arange(lower, upper + 1)
 
     interpolated_data = [
@@ -249,153 +230,10 @@ def load_datasets(path, ds_names, lower=-1000, upper=10000):
     labels = np.concatenate([ds[1] for ds in datasets])
     return normed_spectra, labels
 
-
-def build_loader(
-    SEED,
-    ds,
-    train=True,
-    batch_size=1,
-    shuffle=False,
-    num_workers=4,
-    drop_last=True,
-    pin_memory=True,
-    persistent_workers=False,
-):
-    def seed_worker(worker_id):
-        worker_seed = torch.initial_seed() % 2**32
-        np.random.seed(worker_seed)
-        random.seed(worker_seed)
-
-    generator = torch.Generator()
-    generator.manual_seed(SEED if train else SEED+5232)
-
-    return DataLoader(
-        ds,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=drop_last,
-        persistent_workers=persistent_workers,
-        worker_init_fn=seed_worker,
-        generator=generator,
-        #sampler=DistributedSampler(
-        #    train_ds,
-        #    shuffle=True,
-        #    drop_last=True,
-        #    seed=config.seed
-        #)
-    )
     
-    
-def return_dls(SEED, train_ds, eval_ds, train_batch_size, eval_batch_size):
-    train_dl = build_loader(
-        SEED,
-        train_ds,
-        train=True,
-        batch_size=train_batch_size,
-        shuffle=True,
-        num_workers=4,
-        drop_last=False,
-        pin_memory=True,
-        persistent_workers=False,
-    )
-
-    eval_dl = build_loader(
-        SEED,
-        eval_ds,
-        train=False,
-        batch_size=eval_batch_size,
-        shuffle=False,
-        num_workers=4,
-        drop_last=False,
-        pin_memory=True,
-        persistent_workers=False,
-    )
-    
-    return train_dl, eval_dl
 
 
-def setup_neptune(
-    SEED,
-    MODEL_NAME, 
-    LR, 
-    WD, 
-    EPOCHS,
-    BATCH_SIZE,
-    DROPOUT=None,
-    DROP_PATH_RATE=None
-):
-    if True:
-        neptune_run = neptune.init_run(
-            project="arbaaz/kaggle-spect",
-            name=MODEL_NAME,
-            api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOGE2YjNiZS1mZGUyLTRjYjItYTg5Yy1mZWJkZTIzNzE1NmIifQ=="
-        )
-
-        neptune_run["h_parameters"] = {
-            "seed": SEED,
-            "model_name": MODEL_NAME,
-            "optimizer_name": "nadam",
-            "learning_rate": LR,
-            "scheduler_name": "default",
-            "weight_decay": WD,
-            "num_epochs": EPOCHS,
-            "batch_size": BATCH_SIZE,
-        }
-        if DROPOUT: neptune_run["h_parameters"] = {"dropout": DROPOUT}
-        if DROP_PATH_RATE: neptune_run["h_parameters"] = {"drop_path_rate": DROP_PATH_RATE}
-    else:
-        neptune_run = neptune.init_run(
-            project="arbaaz/crunchdao-structural-break",
-            with_id=config.with_id,
-            api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOGE2YjNiZS1mZGUyLTRjYjItYTg5Yy1mZWJkZTIzNzE1NmIifQ=="
-        )
-
-    return neptune_run
-
-
-import torch.nn.functional as F
-from torch.nn.modules.loss import _Loss
-from sklearn.metrics import r2_score
-
-
-def loss_fn(logits, targets):
-    logits = logits.view(-1)
-    targets = targets.view(-1)
-    return F.mse_loss(logits, targets)
-
-
-def metric_fn(logits, targets):
-    preds = logits.cpu().detach().float().numpy()
-    targets = targets.cpu().detach().numpy()
-    
-    dim1 = r2_score(targets[:, 0], preds[:, 0])
-    dim2 = r2_score(targets[:, 1], preds[:, 1])
-    dim3 = r2_score(targets[:, 2], preds[:, 2])
-    
-    return dim1, dim2, dim3, r2_score(targets, preds)
-
-
-class MSEIgnoreNans(_Loss):
-    def forward(
-        self,
-        input: torch.Tensor,
-        target: torch.Tensor,
-        weights: torch.Tensor,
-    ) -> torch.Tensor:
-        mask = torch.isfinite(target)
-        mse = torch.mean(
-            torch.mul(
-                torch.square(input[mask] - target[mask]),
-                torch.tile(weights[:, None], dims=(1, target.shape[1]))[mask],
-            )
-        )
-        return torch.where(
-            torch.isfinite(mse),
-            mse,
-            torch.tensor(0.).to(target.device),
-        )
+  
 
 
 

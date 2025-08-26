@@ -1,4 +1,5 @@
 from utils import *
+from train_utils import *
 from dataset import get_ds
 
 
@@ -99,12 +100,12 @@ def main():
         
         #model = ResNet(input_channels=1, dropout=DROPOUT).to(device)
         model = ReZeroNet(**config).to(device)
-        model = torch.compile(model)
         if fold == 0: print(get_model_size(model))
         
         optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD, foreach=True)
         scaler = torch.amp.GradScaler(device)
         scheduler = get_scheduler(optimizer, train_dl, EPOCHS)
+        loss_fn = MSEIgnoreNans()
         
         NEPTUNE =  setup_neptune(
             SEED,
@@ -123,6 +124,7 @@ def main():
                 scheduler,
                 train_dl, 
                 eval_dl,
+                loss_fn,
                 EPOCHS,
                 checkpoint_name,
                 neptune_run=NEPTUNE,
