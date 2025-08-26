@@ -261,16 +261,16 @@ def train(
             torch.save(data, f"/checkpoints/{checkpoint_name}")
         
         if neptune_run is not None:
-            neptune_run["train/loss"].append(total_loss.item())
-            neptune_run["eval/loss"].append(eval_total_loss.item())
-            neptune_run["train/r2"].append(r2.item())
-            neptune_run["eval/r2"].append(eval_r2.item())
-            neptune_run["train/one"].append(one.item())
-            neptune_run["train/two"].append(two.item())
-            neptune_run["train/three"].append(three.item())
-            neptune_run["eval/one"].append(eval_one.item())
-            neptune_run["eval/two"].append(eval_two.item())
-            neptune_run["eval/three"].append(eval_three.item())
+            neptune_run["train/loss"].append(total_loss)
+            neptune_run["eval/loss"].append(eval_total_loss)
+            neptune_run["train/r2"].append(r2)
+            neptune_run["eval/r2"].append(eval_r2)
+            #neptune_run["train/one"].append(one)
+            #neptune_run["train/two"].append(two)
+            #neptune_run["train/three"].append(three)
+            #neptune_run["eval/one"].append(eval_one)
+            #neptune_run["eval/two"].append(eval_two)
+            #neptune_run["eval/three"].append(eval_three)
             
         if p and epoch % 5 == 0:
             tqdm.write(
@@ -279,12 +279,12 @@ def train(
                 f"eval/loss: {eval_total_loss:.4f}, "
                 f"train/r2: {r2:.4f}, "
                 f"eval/r2: {eval_r2:.4f}, "
-                f"train/one: {one:.4f}, "
-                f"train/two: {two:.4f}, "
-                f"train/three: {three:.4f}, "
-                f"eval/one: {eval_one:.4f}, "
-                f"eval/two: {eval_two:.4f}, "
-                f"eval/three: {eval_three:.4f} "
+                #f"train/one: {one:.4f}, "
+                #f"train/two: {two:.4f}, "
+                #f"train/three: {three:.4f}, "
+                #f"eval/one: {eval_one:.4f}, "
+                #f"eval/two: {eval_two:.4f}, "
+                #f"eval/three: {eval_three:.4f} "
             )
             
     if neptune_run is not None: neptune_run.stop()
