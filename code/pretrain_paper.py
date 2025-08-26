@@ -100,7 +100,7 @@ def main():
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, foreach=True)
         scaler = torch.amp.GradScaler(device)
         scheduler = get_scheduler(optimizer, train_dl, epochs)
-        loss_fn = MSEIgnoreNans
+        loss_fn = MSEIgnoreNans()
         
         if True:
             neptune = setup_neptune(
@@ -126,7 +126,7 @@ def main():
             train_dl, 
             eval_dl,
             loss_fn,
-            EPOCHS,
+            epochs,
             checkpoint_name,
             neptune_run=neptune,
         )
