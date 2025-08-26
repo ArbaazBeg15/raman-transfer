@@ -56,7 +56,7 @@ def main():
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     RESUME = False
-    NEPTUNE = None
+    
     config["dtype"] = torch.float32
     config["spectra_size"] = 1643
     config["spectra_channels"] = 1
@@ -79,8 +79,8 @@ def main():
     splits = kfold.split(inputs)
     
     for fold, (train_idx, eval_idx) in enumerate(splits):
-        MODEL_NAME = f"resnet.paper.pretrain.fold.{fold}"
-        checkpoint_name = f"paper.pretrain.fold.{fold}.pt"
+        MODEL_NAME = f"resnet.pretrain.fold.{fold}.{SEED}"
+        checkpoint_name = f"paper.pretrain.fold.{fold}.{SEED}.pt"
         
         train_inputs = inputs[train_idx]
         train_targets = targets[train_idx]
@@ -99,12 +99,22 @@ def main():
         
         #model = ResNet(input_channels=1, dropout=DROPOUT).to(device)
         model = ReZeroNet(**config).to(device)
+        model = torch.compile(model)
         if fold == 0: print(get_model_size(model))
         
         optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD, foreach=True)
         scaler = torch.amp.GradScaler(device)
         scheduler = get_scheduler(optimizer, train_dl, EPOCHS)
         
+        NEPTUNE =  setup_neptune(
+            SEED,
+            MODEL_NAME, 
+            LR, 
+            WD, 
+            EPOCHS,
+            BATCH_SIZE=32,
+        )
+            
         score = train(
                 model, 
                 optimizer, 

@@ -316,8 +316,17 @@ def return_dls(SEED, train_ds, eval_ds, train_batch_size, eval_batch_size):
     return train_dl, eval_dl
 
 
-def setup_neptune():
-    if not RESUME:
+def setup_neptune(
+    SEED,
+    MODEL_NAME, 
+    LR, 
+    WD, 
+    EPOCHS,
+    BATCH_SIZE,
+    DROPOUT=None,
+    DROP_PATH_RATE=None
+):
+    if True:
         neptune_run = neptune.init_run(
             project="arbaaz/kaggle-spect",
             name=MODEL_NAME,
