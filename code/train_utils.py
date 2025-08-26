@@ -208,7 +208,7 @@ def train(
             optimizer.zero_grad()
             with torch.amp.autocast(device_type=device, dtype=torch.bfloat16, cache_enabled=True):
                 logits = model(inputs)
-                loss = loss_fn(logits, targets, weights)
+                loss = loss_fn(logits, targets)#, weights)
             
             loss.backward()
             optimizer.step()
@@ -241,7 +241,7 @@ def train(
             with torch.inference_mode():
                 with torch.amp.autocast(device_type=device, dtype=torch.bfloat16, cache_enabled=True):
                     logits = model(inputs)
-                    loss = loss_fn(logits, targets, weights)
+                    loss = loss_fn(logits, targets)#, weights)
 
             eval_total_loss += loss.detach().cpu()
             eval_all_logits.append(logits.detach().cpu())

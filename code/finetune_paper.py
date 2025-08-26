@@ -1,3 +1,6 @@
+import numpy as np
+import pandas as pd
+
 from sklearn.model_selection import KFold
 from model import *
 from utils import *
@@ -5,7 +8,7 @@ from train_utils import *
 from dataset import get_ds
 
 
-SEED = 9235
+SEED = 1000
 print(SEED)
 config = {
     'initial_cnn_channels': 32,
@@ -28,16 +31,50 @@ config = {
     'num_blocks': 2,
 }
 
-ds_names = [
-    "anton_532.csv",
-    "anton_785.csv",
-    "kaiser.csv",
-    "mettler_toledo.csv",
-    "metrohm.csv",
-    "tornado.csv",
-    "tec5.csv",
-    "timegate.csv"
-]
+
+
+def load_transfer_data(path, files):
+    csv_path = os.path.join(path, files[8])
+    df = pd.read_csv(csv_path)
+
+    input_cols = df.columns[1:2049]
+    target_cols = df.columns[2050:]
+
+    targets  = df[target_cols].dropna().to_numpy()
+
+    df = df[input_cols]
+    df['Unnamed: 1'] = df['Unnamed: 1'].str.replace("[\[\]]", "", regex=True).astype('int64')
+    df['Unnamed: 2048'] = df['Unnamed: 2048'].str.replace("[\[\]]", "", regex=True).astype('int64')
+
+    inputs = df.to_numpy().reshape(-1, 2, 2048)
+    inputs = inputs.mean(axis=1)
+    
+    return inputs, targets
+
+
+def preprocess_transfer_data(path, files):
+    inputs, targets = load_transfer_data(path, files)
+    
+    spectra_selection = np.logical_and(
+        300 <= np.array([float(one) for one in range(2048)]),
+        np.array([float(one) for one in range(2048)]) <= 1942,
+    )
+    
+    inputs = inputs[:, spectra_selection]
+    
+    wns = np.array([
+        float(one) for one in range(2048)
+    ])[spectra_selection]
+    wavenumbers = np.arange(300, 1943)
+    
+    interpolated_data = np.array(
+        [np.interp(wavenumbers, xp=wns, fp=i) for i in inputs]
+    )
+    
+    normed_spectra = interpolated_data / np.max(interpolated_data)
+    return normed_spectra, targets
+
+
 
 def main():
     setup_reproducibility(SEED)
@@ -47,7 +84,7 @@ def main():
     print(path)
     files = os.listdir(path)
  
-    inputs, targets = load_datasets(path, ds_names)
+    inputs, targets = preprocess_transfer_data(path, files)
 
     epochs = 100
     weight_decay = 1e-3
@@ -75,8 +112,8 @@ def main():
     splits = kfold.split(inputs)
     
     for fold, (train_idx, eval_idx) in enumerate(splits):
-        model_name = f"resnet.pretrain.fold.{fold}.{SEED}"
-        checkpoint_name = f"paper.pretrain.fold.{fold}.{SEED}.pt"
+        model_name = f"resnet.finetune.fold.{fold}.{SEED}"
+        checkpoint_name = f"paper.finetune.fold.{fold}.{SEED}.pt"
         
         train_inputs = inputs[train_idx]
         train_targets = targets[train_idx]
@@ -100,7 +137,7 @@ def main():
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, foreach=True)
         scaler = torch.amp.GradScaler(device)
         scheduler = get_scheduler(optimizer, train_dl, epochs)
-        loss_fn = MSEIgnoreNans()
+        #loss_fn = MSEIgnoreNans()
         
         if True:
             neptune = setup_neptune(
