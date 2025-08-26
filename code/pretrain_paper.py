@@ -1,9 +1,12 @@
+from sklearn.model_selection import KFold
+from model import *
 from utils import *
 from train_utils import *
 from dataset import get_ds
 
 
 SEED = 1000
+
 config = {
     'initial_cnn_channels': 32,
     'cnn_channel_factor': 1.279574024454846,
@@ -25,6 +28,17 @@ config = {
     'num_blocks': 2,
 }
 
+ds_names = [
+    "anton_532.csv",
+    "anton_785.csv",
+    "kaiser.csv",
+    "mettler_toledo.csv",
+    "metrohm.csv",
+    "tornado.csv",
+    "tec5.csv",
+    "timegate.csv"
+]
+
 def main():
     setup_reproducibility(SEED)
 
@@ -32,31 +46,18 @@ def main():
     path = hf_ds_download(hf_token, "ArbaazBeg/kaggle-spectogram")
     print(path)
     files = os.listdir(path)
-
-    ds_names = [
-        "anton_532.csv",
-        "anton_785.csv",
-        "kaiser.csv",
-        "mettler_toledo.csv",
-        "metrohm.csv",
-        "tornado.csv",
-        "tec5.csv",
-        "timegate.csv"
-    ]
+ 
     inputs, targets = load_datasets(path, ds_names)
 
-    import warnings#; warnings.filterwarnings("ignore")
-
-
-    EPOCHS = 100
-    WD = 1e-3
-    LR = 1e-4
+    epochs = 100
+    weight_decay = 1e-3
+    lr = 1e-4
     
-    DROPOUT = 0.5
-    DROP_PATH_RATE = None
+    drop_out = 0.5
+    drop_path_rate = None
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    RESUME = False
+    resume = False
     
     config["dtype"] = torch.float32
     config["spectra_size"] = 1643
@@ -66,12 +67,6 @@ def main():
         int(config["fc_dims"] / 2),
         3,
     ]
-    
-    #mse_loss_function = MSEIgnoreNans()
-
-
-    from sklearn.model_selection import KFold
-
 
     inputs_mean_std = []
     targets_mean_std = []
@@ -80,7 +75,7 @@ def main():
     splits = kfold.split(inputs)
     
     for fold, (train_idx, eval_idx) in enumerate(splits):
-        MODEL_NAME = f"resnet.pretrain.fold.{fold}.{SEED}"
+        model_name = f"resnet.pretrain.fold.{fold}.{SEED}"
         checkpoint_name = f"paper.pretrain.fold.{fold}.{SEED}.pt"
         
         train_inputs = inputs[train_idx]
@@ -95,43 +90,46 @@ def main():
         
         eval_ds = get_ds(eval_inputs, eval_targets, config, (train_ds.s_mean, train_ds.s_std), (train_ds.concentration_means, train_ds.concentration_stds))
         
-        BATCH_SIZE = 32
-        train_dl, eval_dl = return_dls(SEED, train_ds, eval_ds, BATCH_SIZE, len(eval_ds))
+        batch_size = 32
+        train_dl, eval_dl = return_dls(SEED, train_ds, eval_ds, batch_size, len(eval_ds))
         
         #model = ResNet(input_channels=1, dropout=DROPOUT).to(device)
         model = ReZeroNet(**config).to(device)
         if fold == 0: print(get_model_size(model))
         
-        optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD, foreach=True)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, foreach=True)
         scaler = torch.amp.GradScaler(device)
-        scheduler = get_scheduler(optimizer, train_dl, EPOCHS)
-        loss_fn = MSEIgnoreNans()
+        scheduler = get_scheduler(optimizer, train_dl, epochs)
+        loss_fn = MSEIgnoreNans
         
-        NEPTUNE =  setup_neptune(
-            seed=seed,
-            model_name=MODEL_NAME, 
-            lr=LR, 
-            weight_decay=WD, 
-            epochs=EPOCHS,
-            batch_size=32,
-            dropout=None,
-            drop_path_rate=None,
-            resume=False
-        )
-            
-        score = train(
-                model, 
-                optimizer, 
-                device,
-                scaler,
-                scheduler,
-                train_dl, 
-                eval_dl,
-                loss_fn,
-                EPOCHS,
-                checkpoint_name,
-                neptune_run=NEPTUNE,
+        if True:
+            neptune = setup_neptune(
+                seed=SEED,
+                model_name=model_name, 
+                lr=lr, 
+                weight_decay=weight_decay, 
+                epochs=epochs,
+                batch_size=batch_size,
+                dropout=None,
+                drop_path_rate=None,
+                resume=False
             )
+        else:
+            neptune = None
+                
+        score = train(
+            model, 
+            optimizer, 
+            device,
+            scaler,
+            scheduler,
+            train_dl, 
+            eval_dl,
+            loss_fn,
+            EPOCHS,
+            checkpoint_name,
+            neptune_run=neptune,
+        )
         
         scores.append(score)
 
