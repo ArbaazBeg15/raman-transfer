@@ -10,7 +10,10 @@ from huggingface_hub import login, snapshot_download
 from tqdm.auto import tqdm
 
 
-    
+def get_ckpt(path):
+    return torch.load(path, weights_only=False)
+
+
 def cuda_to_np(tensor):
     return tensor.cpu().detach().numpy()
 

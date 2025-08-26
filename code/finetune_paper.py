@@ -124,7 +124,7 @@ def main():
         
         inputs_mean_std.append((fold, train_ds.s_mean, train_ds.s_std))
         targets_mean_std.append((fold, train_ds.concentration_means, train_ds.concentration_stds))
-        
+        continue
         eval_ds = get_ds(eval_inputs, eval_targets, config, (train_ds.s_mean, train_ds.s_std), (train_ds.concentration_means, train_ds.concentration_stds))
         
         batch_size = 32
@@ -133,6 +133,9 @@ def main():
         #model = ResNet(input_channels=1, dropout=DROPOUT).to(device)
         model = ReZeroNet(**config).to(device)
         if fold == 0: print(get_model_size(model))
+        
+        ckpt = get_ckpt("/paper.pretrain.avg.pt")
+        model.load_state_dict(ckpt)#["state_dict"])
         
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, foreach=True)
         scaler = torch.amp.GradScaler(device)
@@ -169,6 +172,14 @@ def main():
         )
         
         scores.append(score)
-
+        
+    [print(inputs_mean_std[i]) for i in range(5)]   
+    #[print(targets_mean_std[i]) for i in range(5)]   
+    for i in range(5):
+        print(i)
+        print()
+        #for j in range(3):
+        print("mean", inputs_mean_std[i][1].item())
+        print("std", inputs_mean_std[i][2].item())
 
 main()
