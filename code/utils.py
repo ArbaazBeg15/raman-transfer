@@ -687,9 +687,9 @@ def train(
             weights = weights.to(device, non_blocking=True)
 
             with torch.inference_mode():
-                #with torch.amp.autocast(device_type=device, dtype=torch.float16, cache_enabled=True):
-                logits = model(inputs)
-                loss = mse_loss_function(logits, targets, weights)
+                with torch.amp.autocast(device_type=device, dtype=torch.bfloat16, cache_enabled=True):
+                    logits = model(inputs)
+                    loss = mse_loss_function(logits, targets, weights)
 
             eval_total_loss += loss.detach().cpu()
             eval_all_logits.append(logits.detach().cpu())
@@ -721,7 +721,7 @@ def train(
             neptune_run["eval/three"].append(eval_three)
             
         if p and epoch % 5 == 0:
-            print(
+            tqdm.write(
                 f"Epoch: {epoch}, "
                 f"train/loss: {total_loss:.4f}, "
                 f"eval/loss: {eval_total_loss:.4f}, "
