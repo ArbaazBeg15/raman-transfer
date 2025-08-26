@@ -108,12 +108,15 @@ def main():
         loss_fn = MSEIgnoreNans()
         
         NEPTUNE =  setup_neptune(
-            SEED,
-            MODEL_NAME, 
-            LR, 
-            WD, 
-            EPOCHS,
-            BATCH_SIZE=32,
+            seed=seed,
+            model_name=MODEL_NAME, 
+            lr=LR, 
+            weight_decay=WD, 
+            epochs=EPOCHS,
+            batch_size=32,
+            dropout=None,
+            drop_path_rate=None,
+            resume=False
         )
             
         score = train(
