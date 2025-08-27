@@ -7,6 +7,7 @@ from dataset import get_ds
 
 SEED = 9235
 print(SEED)
+
 config = {
     'initial_cnn_channels': 32,
     'cnn_channel_factor': 1.279574024454846,
